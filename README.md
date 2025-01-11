@@ -1,11 +1,11 @@
 # PR Conflict Resolver
 
-An automated tool for handling GitHub Pull Request conflicts, merging with develop, and recreating PRs while preserving original attribution and information.
+An automated tool for handling GitHub Pull Request conflicts, merging with the target branch, and recreating PRs while preserving original attribution and information.
 
 ## Features
 
 - Automatically downloads repository and PR branch
-- Merges with develop branch (supports both origin/develop and source/develop)
+- Merges with target branch (configurable, defaults to 'develop')
 - Handles merge conflicts through:
   - Automatic resolution for simple conflicts
   - Interactive resolution for complex conflicts
@@ -43,6 +43,7 @@ pip install PyGithub gitpython requests
 export GITHUB_TOKEN='your_github_token'
 export REPO_OWNER='owner_name'
 export REPO_NAME='repo_name'
+export BASE_BRANCH='target_branch'  # Optional, defaults to 'develop'
 ```
 
 ## Usage
@@ -68,7 +69,7 @@ python pr_manager.py <pr_number> --no-interactive
 The script provides detailed progress information during execution:
 - Shows which operations are being performed
 - Reports conflict detection and resolution progress
-- Indicates which develop branch is being used
+- Indicates which target branch is being used
 - Displays clear error messages if something goes wrong
 
 ### Conflict Resolution Modes
@@ -88,15 +89,20 @@ The script provides detailed progress information during execution:
    - For complex conflicts that can't be resolved automatically
    - Provides full control over the final content
 
-## Example
+## Examples
 
 ```bash
-# Set up environment variables
+# Using default target branch (develop)
 export GITHUB_TOKEN='ghp_your_token_here'
 export REPO_OWNER='myorg'
 export REPO_NAME='myproject'
+python pr_manager.py 123
 
-# Run the script on PR #123
+# Using custom target branch (main)
+export GITHUB_TOKEN='ghp_your_token_here'
+export REPO_OWNER='myorg'
+export REPO_NAME='myproject'
+export BASE_BRANCH='main'
 python pr_manager.py 123
 ```
 
@@ -108,11 +114,11 @@ The script includes comprehensive error handling for:
 - Network problems
 - Invalid PR numbers
 - Authentication failures
-- Multiple develop branch detection
+- Multiple branch detection
 
 The script will attempt to:
-1. Use origin/develop first
-2. Fall back to source/develop if origin/develop is not available
+1. Use origin/{branch} first
+2. Fall back to source/{branch} if origin/{branch} is not available
 3. Provide clear error messages if neither is accessible
 
 ## Contributing
