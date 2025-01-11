@@ -5,7 +5,7 @@ An automated tool for handling GitHub Pull Request conflicts, merging with devel
 ## Features
 
 - Automatically downloads repository and PR branch
-- Merges with develop branch
+- Merges with develop branch (supports both origin/develop and source/develop)
 - Handles merge conflicts through:
   - Automatic resolution for simple conflicts
   - Interactive resolution for complex conflicts
@@ -17,6 +17,7 @@ An automated tool for handling GitHub Pull Request conflicts, merging with devel
   - Original labels
   - Clear indication of repost
 - Maintains clean git history
+- Detailed progress logging
 
 ## Prerequisites
 
@@ -62,6 +63,14 @@ python pr_manager.py <pr_number> --interactive
 python pr_manager.py <pr_number> --no-interactive
 ```
 
+### Process Output
+
+The script provides detailed progress information during execution:
+- Shows which operations are being performed
+- Reports conflict detection and resolution progress
+- Indicates which develop branch is being used
+- Displays clear error messages if something goes wrong
+
 ### Conflict Resolution Modes
 
 1. **Automatic Resolution**:
@@ -99,6 +108,12 @@ The script includes comprehensive error handling for:
 - Network problems
 - Invalid PR numbers
 - Authentication failures
+- Multiple develop branch detection
+
+The script will attempt to:
+1. Use origin/develop first
+2. Fall back to source/develop if origin/develop is not available
+3. Provide clear error messages if neither is accessible
 
 ## Contributing
 
