@@ -6,11 +6,12 @@ from git import Repo
 from github import Github
 
 class PRManager:
-    def __init__(self, token, repo_owner, repo_name):
+    def __init__(self, token, repo_owner, repo_name, base_branch='develop'):
         self.github = Github(token)
         self.token = token
         self.repo_owner = repo_owner
         self.repo_name = repo_name
+        self.base_branch = base_branch
         self.repo = self.github.get_repo(f"{repo_owner}/{repo_name}")
         
     def setup_git_config(self):
@@ -47,34 +48,34 @@ class PRManager:
         except Exception as e:
             raise Exception(f"Error setting up repository: {str(e)}")
 
-    def merge_develop(self, local_repo):
-        """Merge develop branch and handle conflicts"""
+    def merge_base_branch(self, local_repo):
+        """Merge base branch and handle conflicts"""
         try:
             print("Fetching all remotes...")
             local_repo.git.fetch('--all')
             
-            print("Checking out origin/develop...")
+            print(f"Checking out origin/{self.base_branch}...")
             try:
-                # First try to find develop in origin
-                local_repo.git.checkout('-B', 'develop', 'origin/develop', '--track')
+                # First try to find base branch in origin
+                local_repo.git.checkout('-B', self.base_branch, f'origin/{self.base_branch}', '--track')
             except Exception as e:
-                print(f"Could not find develop in origin: {str(e)}")
+                print(f"Could not find {self.base_branch} in origin: {str(e)}")
                 # If that fails, try to find it in source
                 try:
-                    print("Trying source/develop...")
-                    local_repo.git.checkout('-B', 'develop', 'source/develop', '--track')
+                    print(f"Trying source/{self.base_branch}...")
+                    local_repo.git.checkout('-B', self.base_branch, f'source/{self.base_branch}', '--track')
                 except Exception as e2:
-                    raise Exception(f"Could not find develop branch in any remote: {str(e2)}")
+                    raise Exception(f"Could not find {self.base_branch} branch in any remote: {str(e2)}")
 
-            print("Pulling latest changes from develop...")
-            local_repo.git.pull('origin', 'develop')
+            print(f"Pulling latest changes from {self.base_branch}...")
+            local_repo.git.pull('origin', self.base_branch)
             
             print("Creating temporary branch...")
             local_repo.git.checkout('-b', 'temp_branch')
             
             try:
-                print("Attempting to merge develop...")
-                local_repo.git.merge('develop')
+                print(f"Attempting to merge {self.base_branch}...")
+                local_repo.git.merge(self.base_branch)
                 return True
             except Exception as e:
                 print("Merge conflicts detected. Attempting to resolve...")
@@ -107,6 +108,49 @@ class PRManager:
             if 'merge' in dir(local_repo.git):
                 local_repo.git.merge('--abort')
             return False
+
+    def interactive_resolve_conflict(self, file_path):
+        """Interactively resolve conflicts in a file"""
+        with open(file_path, 'r') as f:
+            content = f.read()
+        
+        sections = content.split('<<<<<<< HEAD')
+        resolved_content = sections[0]  # Keep any content before first conflict
+        
+        for section in sections[1:]:
+            if '=======' in section and '>>>>>>>' in section:
+                current_changes = section.split('=======')[0].strip()
+                incoming_changes = section.split('=======')[1].split('>>>>>>>')[0].strip()
+                
+                print(f"\nConflict in {file_path}:")
+                print("\nCurrent changes (HEAD):")
+                print(current_changes)
+                print("\nIncoming changes:")
+                print(incoming_changes)
+                
+                choice = input("\nChoose resolution:\n1) Keep current changes\n2) Keep incoming changes\n3) Keep both\n4) Edit manually\nChoice (1-4): ")
+                
+                if choice == '1':
+                    resolved_content += current_changes + '\n'
+                elif choice == '2':
+                    resolved_content += incoming_changes + '\n'
+                elif choice == '3':
+                    resolved_content += current_changes + '\n' + incoming_changes + '\n'
+                elif choice == '4':
+                    print("\nEnter resolved content (type 'END' on a new line when done):")
+                    manual_content = []
+                    while True:
+                        line = input()
+                        if line.strip() == 'END':
+                            break
+                        manual_content.append(line)
+                    resolved_content += '\n'.join(manual_content) + '\n'
+            else:
+                resolved_content += section
+        
+        with open(file_path, 'w') as f:
+            f.write(resolved_content)
+        return True
 
     def handle_conflict_file(self, file_path, interactive=True):
         """Handle conflicts in a single file"""
@@ -166,7 +210,7 @@ Original PR: #{original_pr.number}
             new_pr = self.repo.create_pull(
                 title=f"[Repost] {original_pr.title}",
                 body=new_body,
-                base=original_pr.base.ref,
+                base=self.base_branch,
                 head=new_branch_name,
                 maintainer_can_modify=True
             )
@@ -196,9 +240,9 @@ Original PR: #{original_pr.number}
             print(f"Checking out source branch: {source_branch}")
             local_repo.git.checkout(source_branch)
             
-            # Merge develop
-            if not self.merge_develop(local_repo):
-                return "Failed to merge develop branch. Manual intervention required."
+            # Merge base branch
+            if not self.merge_base_branch(local_repo):
+                return f"Failed to merge {self.base_branch} branch. Manual intervention required."
             
             # Push to new branch
             print(f"Pushing to new branch: {new_branch_name}")
@@ -225,6 +269,7 @@ def main():
     token = os.getenv("GITHUB_TOKEN")
     repo_owner = os.getenv("REPO_OWNER")
     repo_name = os.getenv("REPO_NAME")
+    base_branch = os.getenv("BASE_BRANCH", "develop")  # Default to 'develop' if not set
     
     if not all([token, repo_owner, repo_name]):
         print("Please set GITHUB_TOKEN, REPO_OWNER, and REPO_NAME environment variables")
@@ -233,7 +278,7 @@ def main():
     pr_number = int(sys.argv[1])
     interactive = "--no-interactive" not in sys.argv[2:] if len(sys.argv) > 2 else True
     
-    pr_manager = PRManager(token, repo_owner, repo_name)
+    pr_manager = PRManager(token, repo_owner, repo_name, base_branch)
     result = pr_manager.process_pr(pr_number, interactive)
     print(result)
 
