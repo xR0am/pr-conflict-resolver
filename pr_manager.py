@@ -236,9 +236,18 @@ Original PR: #{original_pr.number}
             new_branch_name = f"pr{pr_number}_fix"
             print(f"Will create new branch: {new_branch_name}")
             
-            # Checkout source branch
+            # Checkout source branch with explicit remote tracking
             print(f"Checking out source branch: {source_branch}")
-            local_repo.git.checkout(source_branch)
+            try:
+                # Try origin first
+                local_repo.git.checkout('-B', source_branch, f'origin/{source_branch}', '--track')
+            except Exception as e:
+                print(f"Could not find {source_branch} in origin: {str(e)}")
+                try:
+                    # Try source remote
+                    local_repo.git.checkout('-B', source_branch, f'source/{source_branch}', '--track')
+                except Exception as e2:
+                    raise Exception(f"Could not find {source_branch} branch in any remote: {str(e2)}")
             
             # Merge base branch
             if not self.merge_base_branch(local_repo):
